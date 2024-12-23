@@ -1,0 +1,62 @@
+*&---------------------------------------------------------------------*
+*& Include          ZCOCKPIT_ROT
+*&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*& Include          ZCOKCPIT_ROT
+*&---------------------------------------------------------------------*
+FORM release_order.
+
+  MESSAGE 'Pedido liberado' TYPE 'I'.
+
+ENDFORM.
+
+FORM display_alv.
+  TRY.
+      CALL METHOD cl_salv_table=>factory
+*    EXPORTING
+*      list_display   = IF_SALV_C_BOOL_SAP=>FALSE
+*      r_container    =
+*      container_name =
+        IMPORTING
+          r_salv_table = lo_alv
+        CHANGING
+          t_table      = ty_ekko.
+
+*      GUI STATUS
+      lo_alv->set_screen_status(
+      EXPORTING
+        report        = sy-repid
+        pfstatus      = 'STANDARD'
+        set_functions = cl_salv_table=>c_functions_all
+      ).
+
+
+      gr_events = lo_alv->get_event( ).
+      CREATE OBJECT event_handler.
+      SET HANDLER event_handler->on_click FOR gr_events.
+      lo_alv->display( ).
+    CATCH cx_salv_msg . "CATCH é para buscar a excepção em caso de erro no TRY | cx_salv_msg armazena na variável lx_salv_msg
+      MESSAGE e014(sabapdocu) WITH 'Erro a criar ALV.'.
+
+
+  ENDTRY.
+
+ENDFORM.
+
+FORM get_data.
+  SELECT * FROM ekko INTO TABLE ty_ekko
+  WHERE aedat IN so_dtped
+  AND bsart = p_tpedid
+  AND ebeln IN p_numped.
+
+  IF ty_ekko[] IS NOT INITIAL.
+    LOOP AT ty_ekko INTO wa_ekko.
+*      WRITE: / wa_ekko-ebeln, wa_ekko-aedat, wa_ekko-bsart.
+    ENDLOOP.
+  ELSE.
+    SELECT * FROM ekko INTO TABLE ty_ekko.
+    LOOP AT ty_ekko INTO wa_ekko.
+*      WRITE: / wa_ekko-ebeln, wa_ekko-aedat, wa_ekko-bsart.
+    ENDLOOP.
+  ENDIF.
+ENDFORM.
