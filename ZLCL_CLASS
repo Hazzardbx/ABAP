@@ -1,0 +1,26 @@
+*&---------------------------------------------------------------------*
+*& Include          ZLCL_CLASS
+*&---------------------------------------------------------------------*
+
+*Classes para botões na ALV
+*-----------------------------------
+* class lcl_handle_events
+*
+CLASS lcl_handle_events DEFINITION.
+  PUBLIC SECTION.
+    METHODS: on_click FOR EVENT added_function OF cl_salv_events.
+ENDCLASS.                    "lcl_handle_events DEFINITION
+*---------------------
+* class implimentation
+*
+CLASS lcl_handle_events IMPLEMENTATION.
+  METHOD on_click.
+    CASE sy-ucomm.
+      WHEN 'FCT_OK'.
+        PERFORM release_order.
+*        MESSAGE 'Pedido liberado' TYPE 'I'.
+*    	WHEN .
+*    	WHEN OTHERS.
+    ENDCASE.
+  ENDMETHOD.                    "on_click
+ENDCLASS.                    "lcl_handle_events IMPLEMENTATION
