@@ -1,0 +1,25 @@
+*&---------------------------------------------------------------------*
+*& Report ZCOCKPIT_ORDERS
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT zcockpit_orders.
+
+TABLES: ekko.
+
+INCLUDE zlcl_class.
+INCLUDE zclass_event.
+INCLUDE zcockpit_screen.
+INCLUDE zcockpit_top.
+INCLUDE zcockpit_rot.
+
+*SET PF-STATUS 'STANDARD'.
+
+
+START-OF-SELECTION.
+
+  PERFORM get_data.
+  PERFORM display_alv.
+
+
+END-OF-SELECTION.
