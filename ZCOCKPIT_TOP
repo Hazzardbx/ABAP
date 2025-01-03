@@ -1,9 +1,29 @@
 *&---------------------------------------------------------------------*
-*& Include          ZCOCKPIT_SCREEN
+*& Include          ZCOCKPIT_TOP
 *&---------------------------------------------------------------------*
 
-SELECTION-SCREEN BEGIN OF BLOCK a2 WITH FRAME TITLE TEXT-001.
-SELECT-OPTIONS: so_dtped FOR ekko-aedat.
-PARAMETERS: p_tpedid TYPE ekko-bsart.
-SELECT-OPTIONS:  p_numped FOR ekko-ebeln.
-SELECTION-SCREEN END OF BLOCK a2.
+TYPES: BEGIN OF ty_line,
+*         checkbox TYPE abap_bool,
+         ebeln TYPE ekko-ebeln,
+         ebelp TYPE ekpo-ebelp,
+         matnr TYPE ekpo-matnr,
+         maktx TYPE makt-maktx,
+         menge TYPE ekpo-menge,
+         meins TYPE ekpo-meins,
+         netpr TYPE ekpo-netpr,
+         werks TYPE ekpo-werks,
+         lgort TYPE ekpo-lgort,
+         ekorg TYPE ekko-ekorg,
+         ekgrp TYPE ekko-ekgrp,
+         bukrs TYPE ekko-bukrs,
+       END OF ty_line.
+
+
+"Ordens de compras e items
+DATA: gt_data   TYPE TABLE OF ty_line,
+      ls_data   TYPE ty_line.
+
+*Cenas do ALV
+data: lo_alv     TYPE REF TO cl_salv_table,
+      gr_events  TYPE REF TO cl_salv_events_table,
+      event_handler TYPE REF TO lcl_handle_events.
