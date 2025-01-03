@@ -1,62 +1,86 @@
 *&---------------------------------------------------------------------*
 *& Include          ZCOCKPIT_ROT
 *&---------------------------------------------------------------------*
-*&---------------------------------------------------------------------*
-*& Include          ZCOKCPIT_ROT
-*&---------------------------------------------------------------------*
-FORM release_order.
 
-  MESSAGE 'Pedido liberado' TYPE 'I'.
 
+FORM get_data.
+
+  IF so_dtped IS NOT INITIAL.
+
+    LOOP AT so_dtped INTO DATA(ls_data).
+      ls_data-high = sy-datum.
+      so_dtped-high = ls_data-high.
+      MODIFY so_dtped FROM ls_data.
+    ENDLOOP.
+
+    IF p_tpedid IS INITIAL.
+      p_tpedid = 'NB'.
+    ENDIF.
+
+    SELECT a~ebeln, b~ebelp, b~matnr, c~maktx, b~menge, b~meins, b~netpr, b~werks, b~lgort,
+        a~ekorg, a~ekgrp, a~bukrs
+        FROM ekko AS a
+        INNER JOIN ekpo AS b ON a~ebeln = b~ebeln
+        INNER JOIN makt AS c ON b~matnr = c~matnr
+        INTO TABLE @gt_data
+        WHERE a~frgrl = 'X' " campo indicador de liberação
+        AND a~aedat IN @so_dtped
+        AND a~bsart = @p_tpedid
+        AND a~ebeln IN @so_nped .
+  ELSE.
+    SELECT a~ebeln, b~ebelp, b~matnr, c~maktx, b~menge, b~meins, b~netpr, b~werks, b~lgort,
+        a~ekorg, a~ekgrp, a~bukrs
+        FROM ekko AS a
+        INNER JOIN ekpo AS b ON a~ebeln = b~ebeln
+        INNER JOIN makt AS c ON b~matnr = c~matnr
+        INTO TABLE @gt_data
+        WHERE a~frgrl = 'X'. " campo indicador de liberação
+
+  ENDIF.
+ENDFORM.
+
+FORM pf_status_1.
+  SET PF-STATUS 'STANDARD'.
 ENDFORM.
 
 FORM display_alv.
+
   TRY.
       CALL METHOD cl_salv_table=>factory
-*    EXPORTING
-*      list_display   = IF_SALV_C_BOOL_SAP=>FALSE
-*      r_container    =
-*      container_name =
         IMPORTING
-          r_salv_table = lo_alv
+          r_salv_table = lo_alv                          " Basis Class Simple ALV Tables
         CHANGING
-          t_table      = ty_ekko.
-
-*      GUI STATUS
-      lo_alv->set_screen_status(
-      EXPORTING
-        report        = sy-repid
-        pfstatus      = 'STANDARD'
-        set_functions = cl_salv_table=>c_functions_all
-      ).
-
-
-      gr_events = lo_alv->get_event( ).
-      CREATE OBJECT event_handler.
-      SET HANDLER event_handler->on_click FOR gr_events.
-      lo_alv->display( ).
-    CATCH cx_salv_msg . "CATCH é para buscar a excepção em caso de erro no TRY | cx_salv_msg armazena na variável lx_salv_msg
-      MESSAGE e014(sabapdocu) WITH 'Erro a criar ALV.'.
-
-
+          t_table      = gt_data.
+    CATCH cx_salv_msg. " ALV: General Error Class with Message
+*  CATCH cx_salv_msg. " ALV: General Error Class with Message
   ENDTRY.
+
+  " PF STATUS ANTES DO DISPLAY DA ALV
+
+  lo_alv->set_screen_status(
+    EXPORTING
+      report        = sy-repid                 " ABAP Program: Current Master Program
+      pfstatus      = 'STANDARD'                 " Screens, Current GUI Status
+      set_functions = cl_salv_table=>c_functions_all
+  ).
+
+  IF lo_alv IS NOT INITIAL.
+    lo_alv->get_functions( )->set_all( abap_true ).
+    lo_alv->display( ).
+
+  ENDIF.
 
 ENDFORM.
 
-FORM get_data.
-  SELECT * FROM ekko INTO TABLE ty_ekko
-  WHERE aedat IN so_dtped
-  AND bsart = p_tpedid
-  AND ebeln IN p_numped.
+FORM liberar_pedido.
 
-  IF ty_ekko[] IS NOT INITIAL.
-    LOOP AT ty_ekko INTO wa_ekko.
-*      WRITE: / wa_ekko-ebeln, wa_ekko-aedat, wa_ekko-bsart.
-    ENDLOOP.
-  ELSE.
-    SELECT * FROM ekko INTO TABLE ty_ekko.
-    LOOP AT ty_ekko INTO wa_ekko.
-*      WRITE: / wa_ekko-ebeln, wa_ekko-aedat, wa_ekko-bsart.
-    ENDLOOP.
-  ENDIF.
+
+endform.
+
+FORM user_command_1.
+  CASE sy-ucomm.
+    WHEN 'LIBERAR'.
+      PERFORM liberar_pedido.
+  ENDCASE.
+
 ENDFORM.
