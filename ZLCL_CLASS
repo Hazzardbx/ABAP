@@ -17,7 +17,7 @@ CLASS lcl_handle_events IMPLEMENTATION.
   METHOD on_click.
     CASE sy-ucomm.
       WHEN 'FCT_OK'.
-        PERFORM release_order.
+*        PERFORM release_order.
 *        MESSAGE 'Pedido liberado' TYPE 'I'.
 *    	WHEN .
 *    	WHEN OTHERS.
