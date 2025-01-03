@@ -3,9 +3,10 @@
 *&---------------------------------------------------------------------*
 
 TYPES: BEGIN OF ty_line,
-*         checkbox TYPE abap_bool,
+         checkbox TYPE c length 1,
          ebeln TYPE ekko-ebeln,
          ebelp TYPE ekpo-ebelp,
+         aedat TYPE ekko-aedat,
          matnr TYPE ekpo-matnr,
          maktx TYPE makt-maktx,
          menge TYPE ekpo-menge,
