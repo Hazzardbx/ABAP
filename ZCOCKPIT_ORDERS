@@ -3,22 +3,23 @@
 *&---------------------------------------------------------------------*
 *&
 *&---------------------------------------------------------------------*
-REPORT zcockpit_orders.
+REPORT zcockpit_orders2.
 
-TABLES: ekko.
+TABLES: ekko, ekpo, makt.
 
+INCLUDE zcockpit_screen.
 INCLUDE zlcl_class.
 INCLUDE zclass_event.
-INCLUDE zcockpit_screen.
 INCLUDE zcockpit_top.
 INCLUDE zcockpit_rot.
 
-*SET PF-STATUS 'STANDARD'.
 
 
 START-OF-SELECTION.
 
+  SET PF-STATUS 'STANDARD'.
   PERFORM get_data.
+*  PERFORM create_container.
   PERFORM display_alv.
 
 
