@@ -17,23 +17,23 @@ FORM get_data.
       p_tpedid = 'NB'.
     ENDIF.
 
-    SELECT a~ebeln, b~ebelp, b~matnr, c~maktx, b~menge, b~meins, b~netpr, b~werks, b~lgort,
+    SELECT a~ebeln, b~ebelp, a~aedat, b~matnr, c~maktx, b~menge, b~meins, b~netpr, b~werks, b~lgort,
         a~ekorg, a~ekgrp, a~bukrs
         FROM ekko AS a
         INNER JOIN ekpo AS b ON a~ebeln = b~ebeln
         INNER JOIN makt AS c ON b~matnr = c~matnr
-        INTO TABLE @gt_data
+        INTO CORRESPONDING FIELDS OF TABLE @gt_data
         WHERE a~frgrl = 'X' " campo indicador de liberação
         AND a~aedat IN @so_dtped
         AND a~bsart = @p_tpedid
         AND a~ebeln IN @so_nped .
   ELSE.
-    SELECT a~ebeln, b~ebelp, b~matnr, c~maktx, b~menge, b~meins, b~netpr, b~werks, b~lgort,
+    SELECT a~ebeln, b~ebelp, a~aedat, b~matnr, c~maktx, b~menge, b~meins, b~netpr, b~werks, b~lgort,
         a~ekorg, a~ekgrp, a~bukrs
         FROM ekko AS a
         INNER JOIN ekpo AS b ON a~ebeln = b~ebeln
         INNER JOIN makt AS c ON b~matnr = c~matnr
-        INTO TABLE @gt_data
+        INTO CORRESPONDING FIELDS OF TABLE @gt_data
         WHERE a~frgrl = 'X'. " campo indicador de liberação
 
   ENDIF.
@@ -44,6 +44,9 @@ FORM pf_status_1.
 ENDFORM.
 
 FORM display_alv.
+
+  data: lt_fieldcat TYPE lvc_t_fcat,
+        ls_fieldcat TYPE lvc_s_fcat.
 
   TRY.
       CALL METHOD cl_salv_table=>factory
