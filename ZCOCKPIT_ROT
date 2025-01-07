@@ -43,9 +43,15 @@ FORM pf_status_1.
   SET PF-STATUS 'STANDARD'.
 ENDFORM.
 
+FORM set_multiselection.
+
+  lo_alv->get_selections( )->set_selection_mode( if_salv_c_selection_mode=>cell ).
+
+ENDFORM.
+
 FORM display_alv.
 
-  data: lt_fieldcat TYPE lvc_t_fcat,
+  DATA: lt_fieldcat TYPE lvc_t_fcat,
         ls_fieldcat TYPE lvc_s_fcat.
 
   TRY.
@@ -69,21 +75,46 @@ FORM display_alv.
 
   IF lo_alv IS NOT INITIAL.
     lo_alv->get_functions( )->set_all( abap_true ).
+    PERFORM set_multiselection.
     lo_alv->display( ).
 
   ENDIF.
 
 ENDFORM.
 
-FORM liberar_pedido.
+FORM get_selected_rows.
+  DATA: lt_selected_rows TYPE salv_t_row,
+        ls_selected_row  LIKE LINE OF lt_selected_rows.
+*        lt_temp_data type TABLE OF ty_line,
+*        ls_temp_data type ty_line.
 
 
-endform.
+  lt_selected_rows = lo_alv->get_selections( )->get_selected_rows( ).
 
-FORM user_command_1.
-  CASE sy-ucomm.
-    WHEN 'LIBERAR'.
-      PERFORM liberar_pedido.
-  ENDCASE.
+  IF lt_selected_rows IS INITIAL.
+    MESSAGE 'Please select a line' TYPE 'I'.
+    RETURN.
+  ELSE.
+*    CLEAR gt_data.
+    LOOP AT lt_selected_rows INTO ls_selected_row.
+      READ TABLE gt_data INTO DATA(ls_data_row) INDEX sy-tabix.
+    ENDLOOP.
+  ENDIF.
 
+
+*verificar se está a ser chamado só 1 pedido de compra  (para testes usar o 30)
 ENDFORM.
+
+*form liberar_pedido.
+*  data: lv_ebeln TYPE ekko-ebeln.
+*  READ TABLE
+*
+*endform.
+
+*FORM user_command_1.
+*  CASE sy-ucomm.
+*    WHEN 'LIBERAR'.
+*      PERFORM liberar_pedido.
+*  ENDCASE.
+
+*ENDFORM.
