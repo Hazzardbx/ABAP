@@ -2,11 +2,11 @@
 *& Include          ZCOCKPIT_ROT
 *&---------------------------------------------------------------------*
 
-
 FORM get_data.
 
-  IF so_dtped IS NOT INITIAL.
+  REFRESH gt_data.
 
+  IF so_dtped IS NOT INITIAL.
     LOOP AT so_dtped INTO DATA(ls_data).
       ls_data-high = sy-datum.
       so_dtped-high = ls_data-high.
@@ -18,38 +18,41 @@ FORM get_data.
     ENDIF.
 
     SELECT a~ebeln, b~ebelp, a~aedat, b~matnr, c~maktx, b~menge, b~meins, b~netpr, b~werks, b~lgort,
-        a~ekorg, a~ekgrp, a~bukrs
-        FROM ekko AS a
-        INNER JOIN ekpo AS b ON a~ebeln = b~ebeln
-        INNER JOIN makt AS c ON b~matnr = c~matnr
-        INTO CORRESPONDING FIELDS OF TABLE @gt_data
-        WHERE a~frgrl = 'X' " campo indicador de liberação
+           a~ekorg, a~ekgrp, a~bukrs
+      FROM ekko AS a
+      INNER JOIN ekpo AS b ON a~ebeln = b~ebeln
+      INNER JOIN makt AS c ON b~matnr = c~matnr
+      INTO CORRESPONDING FIELDS OF TABLE @gt_data
+      WHERE a~frgrl = 'X' " campo indicador de liberação
         AND a~aedat IN @so_dtped
         AND a~bsart = @p_tpedid
-        AND a~ebeln IN @so_nped .
+        AND a~ebeln IN @so_nped.
   ELSE.
     SELECT a~ebeln, b~ebelp, a~aedat, b~matnr, c~maktx, b~menge, b~meins, b~netpr, b~werks, b~lgort,
-        a~ekorg, a~ekgrp, a~bukrs
-        FROM ekko AS a
-        INNER JOIN ekpo AS b ON a~ebeln = b~ebeln
-        INNER JOIN makt AS c ON b~matnr = c~matnr
-        INTO CORRESPONDING FIELDS OF TABLE @gt_data
-        WHERE a~frgrl = 'X'. " campo indicador de liberação
-
+           a~ekorg, a~ekgrp, a~bukrs
+      FROM ekko AS a
+      INNER JOIN ekpo AS b ON a~ebeln = b~ebeln
+      INNER JOIN makt AS c ON b~matnr = c~matnr
+      INTO CORRESPONDING FIELDS OF TABLE @gt_data
+      WHERE a~frgrl = 'X'. " campo indicador de liberação
   ENDIF.
-ENDFORM.
 
-FORM pf_status_1.
-  SET PF-STATUS 'STANDARD'.
 ENDFORM.
 
 FORM set_multiselection.
-
   lo_alv->get_selections( )->set_selection_mode( if_salv_c_selection_mode=>cell ).
+ENDFORM.
+
+FORM set_events.
+
+  CREATE OBJECT event_handler.
+
+  gr_events = lo_alv->get_event( ).
+  SET HANDLER event_handler->on_click FOR gr_events.
 
 ENDFORM.
 
-FORM display_alv.
+FORM create_alv.
 
   DATA: lt_fieldcat TYPE lvc_t_fcat,
         ls_fieldcat TYPE lvc_s_fcat.
@@ -57,37 +60,37 @@ FORM display_alv.
   TRY.
       CALL METHOD cl_salv_table=>factory
         IMPORTING
-          r_salv_table = lo_alv                          " Basis Class Simple ALV Tables
+          r_salv_table = lo_alv
         CHANGING
           t_table      = gt_data.
-    CATCH cx_salv_msg. " ALV: General Error Class with Message
-*  CATCH cx_salv_msg. " ALV: General Error Class with Message
+    CATCH cx_salv_msg.
   ENDTRY.
 
   " PF STATUS ANTES DO DISPLAY DA ALV
-
   lo_alv->set_screen_status(
     EXPORTING
-      report        = sy-repid                 " ABAP Program: Current Master Program
-      pfstatus      = 'STANDARD'                 " Screens, Current GUI Status
+      report        = sy-repid
+      pfstatus      = 'STANDARD'
       set_functions = cl_salv_table=>c_functions_all
   ).
 
   IF lo_alv IS NOT INITIAL.
     lo_alv->get_functions( )->set_all( abap_true ).
+
+    PERFORM set_events.
     PERFORM set_multiselection.
-    lo_alv->display( ).
 
   ENDIF.
 
 ENDFORM.
 
-FORM get_selected_rows.
-  DATA: lt_selected_rows TYPE salv_t_row,
-        ls_selected_row  LIKE LINE OF lt_selected_rows.
-*        lt_temp_data type TABLE OF ty_line,
-*        ls_temp_data type ty_line.
+FORM display_alv.
 
+  lo_alv->display( ).
+
+ENDFORM.
+
+FORM get_selected_rows.
 
   lt_selected_rows = lo_alv->get_selections( )->get_selected_rows( ).
 
@@ -95,26 +98,30 @@ FORM get_selected_rows.
     MESSAGE 'Please select a line' TYPE 'I'.
     RETURN.
   ELSE.
-*    CLEAR gt_data.
+    CLEAR lt_temp_data.
     LOOP AT lt_selected_rows INTO ls_selected_row.
-      READ TABLE gt_data INTO DATA(ls_data_row) INDEX sy-tabix.
+      READ TABLE gt_data INTO DATA(ls_data) INDEX ls_selected_row.
+      IF sy-subrc = 0.
+        "populando nova tabela com linhas selecionadas
+        ls_temp_data = ls_data.
+        APPEND ls_temp_data TO lt_temp_data.
+      ENDIF.
     ENDLOOP.
   ENDIF.
 
-
-*verificar se está a ser chamado só 1 pedido de compra  (para testes usar o 30)
 ENDFORM.
 
-*form liberar_pedido.
-*  data: lv_ebeln TYPE ekko-ebeln.
-*  READ TABLE
-*
-*endform.
+FORM release_order.
 
-*FORM user_command_1.
-*  CASE sy-ucomm.
-*    WHEN 'LIBERAR'.
-*      PERFORM liberar_pedido.
-*  ENDCASE.
+  LOOP AT lt_temp_data INTO ls_temp_data.
+    CALL FUNCTION 'ZRELEASE_ORDER'
+      EXPORTING
+        po_key = ls_temp_data-ebeln.
 
-*ENDFORM.
+  ENDLOOP.
+
+  IF sy-subrc EQ 0.
+    MESSAGE 'Pedido Liberado com Sucesso' TYPE 'S'.
+  ENDIF.
+
+ENDFORM.
