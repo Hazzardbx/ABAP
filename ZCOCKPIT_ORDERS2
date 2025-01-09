@@ -1,5 +1,6 @@
+
 *&---------------------------------------------------------------------*
-*& Report ZCOCKPIT_ORDERS
+*& Report ZCOCKPIT_ORDERS2
 *&---------------------------------------------------------------------*
 *&
 *&---------------------------------------------------------------------*
@@ -8,19 +9,14 @@ REPORT zcockpit_orders2.
 TABLES: ekko, ekpo, makt.
 
 INCLUDE zcockpit_screen.
-INCLUDE zlcl_class.
-INCLUDE zclass_event.
 INCLUDE zcockpit_top.
+INCLUDE zlcl_class.
 INCLUDE zcockpit_rot.
-
-
 
 START-OF-SELECTION.
 
-  SET PF-STATUS 'STANDARD'.
   PERFORM get_data.
-*  PERFORM create_container.
+  PERFORM create_alv.
   PERFORM display_alv.
-
 
 END-OF-SELECTION.
