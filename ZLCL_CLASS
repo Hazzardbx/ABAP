@@ -35,7 +35,7 @@ ENDCLASS.
 
 CLASS lcl_handle_events  IMPLEMENTATION.
   METHOD on_click.
-    CASE sy-ucomm.  "at user command
+    CASE sy-ucomm.  "At user command
       WHEN 'LIBERAR'.
 
         PERFORM get_selected_rows.
@@ -48,10 +48,34 @@ CLASS lcl_handle_events  IMPLEMENTATION.
           EXPORTING
             refresh_mode = if_salv_c_refresh=>soft " ALV: Data Element for Constants
         ).
+      WHEN 'EDIT'.
 
-      WHEN OTHERS.
-    ENDCASE.
-  ENDMETHOD.                    "on_click
+        PERFORM get_selected_rows.
+        IF lines( lt_temp_data ) GT 1.
+          MESSAGE 'Please select only one line at a time.' TYPE 'I'.
+          RETURN.
+        ELSE.
+          READ TABLE lt_temp_data INTO DATA(ls_selected) INDEX 1.
+        ENDIF.
+        IF sy-subrc = 0.
+          CALL SCREEN 0100 STARTING AT 10 10.
+        ENDIF.
+
+        WHEN 'REFRESH'.
+
+          PERFORM get_data.
+
+          lo_alv->refresh(
+            EXPORTING
+*              s_stable     =                         " ALV Control: Refresh Stability
+              refresh_mode = if_salv_c_refresh=>full " ALV: Data Element for Constants
+          ).
+
+
+    WHEN OTHERS.
+  ENDCASE.
+
+ENDMETHOD.                    "on_click
 ENDCLASS.
 
-DATA: event_handler TYPE REF TO lcl_handle_events.                  "lcl_handle_events IMPLEMENTATION
+DATA: event_handler   TYPE REF TO lcl_handle_events.                  "lcl_handle_events IMPLEMENTATION
