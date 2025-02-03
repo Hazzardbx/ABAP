@@ -9,12 +9,13 @@
 MODULE user_command_0200 INPUT.
   CASE okcode200.
     WHEN 'BTN_SEND'.
-      PERFORM send_mail_order.
+        PERFORM send_mail_order.
     WHEN 'BTN_CANCEL'.
       LEAVE TO SCREEN 0.
-    WHEN 'BACK'.
+    WHEN '&F03'.
       LEAVE TO SCREEN 0.
-    WHEN '&F12'.
+    WHEN 'CANCELAR'.
+      CLEAR old_ebeln.
       LEAVE TO SCREEN 0.
   ENDCASE.
 ENDMODULE.
