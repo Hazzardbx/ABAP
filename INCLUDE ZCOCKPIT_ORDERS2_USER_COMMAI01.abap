@@ -9,27 +9,33 @@
 MODULE user_command_0100 INPUT.
   CASE okcode100.
     WHEN 'FCT_CANCELAR'.
-      MESSAGE 'Operação cancelada.' TYPE 'I'.
+      MESSAGE s013(zcl_ckf_msg).
       LEAVE TO SCREEN 0.
     WHEN 'FCT_SUBMETER'.
-
-*        PERFORM edit_order.
-      CALL FUNCTION 'ZCHANGE_ORDER'
+      "ALTERAR ITEMS(EDIT)
+      "cria um objeto de item
+      CREATE OBJECT ol_items
         EXPORTING
-          po_key   = in_ebeln
-          po_item  = in_ebelp
-          quantity = in_menge2.
+          po_key = in_ebeln.
 
+      "recebe os items relacionados ao pedido
+      ol_items->get_items( ).
+
+      "cria uma estrutura para enviar ao metodo
+      DATA: ls_items TYPE zckf_items_st.
+      ls_items-ebeln = in_ebeln.
+      ls_items-ebelp = in_ebelp.
+      ls_items-menge = in_menge2.
+
+      "envia a estrutura para alteracao da quantidade do item
+      ol_items->set_new_quantity( ls_items = ls_items ).
+
+      "verifica retorno de operacao
       IF sy-subrc = 0.
-        MESSAGE 'Registo editado' TYPE 'I'.
-*          lo_alv->get_columns( ).
-*          lo_alv->refresh( ).
-*          lo_alv->display( ).
+        MESSAGE s014(zcl_ckf_msg).
       ELSE.
-        MESSAGE 'Não foi possível editar o registo' TYPE 'I'.
+        MESSAGE e019(zcl_ckf_msg).
       ENDIF.
-
-
 
       SET SCREEN 0.
       LEAVE SCREEN.
