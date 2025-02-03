@@ -6,16 +6,24 @@ FORM get_data.
 
   REFRESH gt_data.
 
-  IF so_dtped IS NOT INITIAL.
+  "verifica se a data foi enviada
+  IF so_dtped IS INITIAL.
+
     LOOP AT so_dtped INTO DATA(ls_data).
       ls_data-high = sy-datum.
       so_dtped-high = ls_data-high.
-      MODIFY so_dtped FROM ls_data.
-
+      MODIFY so_dtped FROM ls_data .
     ENDLOOP.
 
     IF p_tpedid IS INITIAL.
       p_tpedid = 'NB'.
+    ELSE.
+      IF p_tpedid <> 'NB'.
+*        MESSAGE | 'Nenhum pedido encontrado' | TYPE 'S' DISPLAY LIKE 'E'.
+        MESSAGE e021(zcl_ckf_msg).
+        lv_msg_r-rc = 1.
+        RETURN.
+      ENDIF.
     ENDIF.
 
     ol_orders->get_orders_filter(
@@ -32,9 +40,24 @@ FORM get_data.
     ENDLOOP.
 
   ELSE.
+    "verifica se a data fim foi enviada
+    LOOP AT so_dtped INTO DATA(ls_data2).
+      IF ls_data2-high IS INITIAL.
+        ls_data2-high = sy-datum.
+        so_dtped-high = ls_data2-high.
+        MODIFY so_dtped FROM ls_data2 .
+      ENDIF.
+    ENDLOOP.
 
     IF p_tpedid IS INITIAL.
       p_tpedid = 'NB'.
+    ELSE.
+      IF p_tpedid <> 'NB'.
+*        MESSAGE | 'Nenhum pedido encontrado' | TYPE 'S' DISPLAY LIKE 'E'.
+        MESSAGE e021(zcl_ckf_msg).
+        lv_msg_r-rc = 1.
+        RETURN.
+      ENDIF.
     ENDIF.
 
     ol_orders->get_orders_filter(
@@ -99,7 +122,9 @@ ENDFORM.
 
 FORM display_alv.
 
-  lo_alv->display( ).
+  IF lv_msg_r-rc <> 1.
+    lo_alv->display( ).
+  ENDIF.
 
 ENDFORM.
 
@@ -108,7 +133,7 @@ FORM get_selected_rows.
   lt_selected_rows = lo_alv->get_selections( )->get_selected_rows( ).
 
   IF lt_selected_rows IS INITIAL.
-    MESSAGE 'Please select a line' TYPE 'I'.
+    MESSAGE s015(zcl_ckf_msg).
     RETURN.
   ELSE.
     CLEAR lt_temp_data.
@@ -126,145 +151,157 @@ ENDFORM.
 
 FORM release_order.
 
+  DATA: it_results TYPE TABLE OF i.
+
+  "libera os pedidos das linhas selecionadas
   LOOP AT lt_temp_data INTO ls_temp_data.
-    CALL FUNCTION 'ZRELEASE_ORDER'
+
+    "cria um objeto do pedido
+    CREATE OBJECT ol_order
       EXPORTING
-        po_key = ls_temp_data-ebeln.
+        lv_po_key = ls_temp_data-ebeln.
+
+    "recebe o pedido de compra
+    ol_order->get_order( ).
+
+    "libera o pedido
+    ol_order->release_order(
+      IMPORTING
+        result = lv_msg_r
+    ).
+
+    "verifica se houve erro no processo
+    IF lv_msg_r-rc NE 0.
+      APPEND lv_msg_r-rc TO it_results.
+    ENDIF.
+
   ENDLOOP.
 
+  "verifica erros de liberação
+  READ TABLE it_results INTO DATA(ls_results) INDEX 1.
   IF sy-subrc EQ 0.
-    MESSAGE 'Pedido Liberado com Sucesso' TYPE 'S'.
+    MESSAGE s002(zcl_ckf_msg) WITH ls_temp_data-ebeln.
+  ELSE.
+    MESSAGE s000(zcl_ckf_msg) WITH ls_temp_data-ebeln.
   ENDIF.
 
 ENDFORM.
 
 FORM delete_order.
 
-  DATA: lt_index TYPE TABLE OF sy-tabix,
-        lv_index TYPE sy-tabix.
+  DATA: lv_count TYPE i VALUE 1, "contador para linhas selecionadas
+        lv_ebeln TYPE ebeln.     "casting de ebeln
 
-  lt_selected_rows = lo_alv->get_selections( )->get_selected_rows( ).
+  "recebe linhas selecionadas
+  PERFORM get_selected_rows.
+
+  "verifica se houveram linhas selecionadas
   IF lt_selected_rows IS INITIAL.
-    MESSAGE 'Por favor selecione a(s) linha(s) a apagar.' TYPE 'I'.
+    MESSAGE s012(zcl_ckf_msg).
     RETURN.
   ELSE.
-    LOOP AT lt_selected_rows INTO ls_selected_row.
-      READ TABLE gt_data INTO DATA(ls_data) INDEX ls_selected_row TRANSPORTING NO FIELDS.
-      " TRANSPOSRTING NO FIELDS - A linha existe, mas os dados da linha não foram transferidos para uma variável
+
+    "ciclo dura a quantidade de vezes == linhas selecionadas
+    DO lines( lt_selected_rows ) TIMES.
+
+      "busca o index da linha selecionada
+      READ TABLE lt_selected_rows INTO DATA(ls_selected_rows) INDEX lv_count.
+
+      "procura na tabela do alv usando o index como filtro
+      READ TABLE gt_data INTO DATA(ls_data) INDEX ls_selected_rows.
+
+      "se encontrou...
       IF sy-subrc = 0.
-        DELETE gt_data INDEX ls_selected_row.
+
+        "recebe o ebeln da linha encontrada
+        lv_ebeln = ls_data-ebeln.
+
+        "itera sobre a tabela do alv onde o ebeln existe
+        LOOP AT gt_data INTO ls_data WHERE ebeln = lv_ebeln.
+
+          "marca um campo desta linha com uma string
+          ls_data-bukrs = 'DEL0'.
+
+          "altera a tabela com as marcações
+          MODIFY gt_data FROM ls_data.
+        ENDLOOP.
+
+        "incrementa o contador para a proxima linha selecionada
+        ADD 1 TO lv_count.
       ENDIF.
+    ENDDO.
+
+    "depois de marcar as linhas da tabela que devem ser apagadas
+    "iteramos novamente sobre a tabela procurando as strings de marcação
+    LOOP AT gt_data INTO ls_data WHERE bukrs = 'DEL0'.
+      "limpamos estas linhas // estruturas // de forma que fiquem vazias
+      CLEAR ls_data.
+      "alteramos a tabela do alv
+      MODIFY gt_data FROM ls_data.
     ENDLOOP.
+
+    "ao fim de todo o processo, removemos as linhas vazias da tabela.
+    DELETE gt_data WHERE ebeln IS INITIAL.
+
   ENDIF.
 
 ENDFORM.
 
 FORM send_mail_order.
 
-  CONCATENATE 'Order number: ' ls_temp_data-ebeln
-              'Item: ' ls_temp_data-ebelp
-              'Material: ' ls_temp_data-matnr
-              INTO in_mail SEPARATED BY space.
+  "recebe texto do container
+  CALL METHOD editor->get_text_as_r3table
+    IMPORTING
+      table = lt_objcont.
 
-  LOOP AT lt_temp_data INTO ls_temp_data.
+  "verifica se texto foi retornadoo
+  IF sy-subrc NE 0.
+    MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+      WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+  ENDIF.
 
-*    IF in_mail IS INITIAL.
-      CALL FUNCTION 'ZSEND_MAIL_ORDER'
-        EXPORTING
-          po_key       = ls_temp_data-ebeln
-          message_mail = lv_message_mail
-        IMPORTING
-          ls_result    = lv_msg_r.
+  "criar variáveis para passar a string o texto
+  DATA: lv_line         TYPE string,
+        lv_message_mail TYPE string.
 
-      IF lv_msg_r-rc = 0. " Sucesso
-        MESSAGE 'E-mail enviado com sucesso.' TYPE 'S'.
-      ELSE.
-        MESSAGE 'Erro ao enviar e-mail' TYPE 'E'.
-      ENDIF.
-
-*    ENDIF.
-
-
-
+  "trata mensagem a ser enviada
+  CLEAR lv_message_mail.
+  LOOP AT lt_objcont INTO lv_line.
+    CONCATENATE lv_message_mail lv_line INTO lv_message_mail SEPARATED BY cl_abap_char_utilities=>cr_lf.
   ENDLOOP.
 
+  "cria um objeto de ordem de compra
+  IF ol_order IS INITIAL.
+    CREATE OBJECT ol_order
+      EXPORTING
+        lv_po_key = old_ebeln.
+  ENDIF.
+
+  "recebe o pedido de compra da classe
+  ol_order->get_order( ).
+
+  "verifica se há texto para ser enviado antes de enviar o email
+  IF lv_message_mail IS INITIAL.
+    "envia email sem texto
+    ol_order->send_mail_order(
+      IMPORTING
+        result       = lv_msg_r
+    ).
+  ELSE.
+    "envia email com texto
+    ol_order->send_mail_order(
+      EXPORTING
+        message_mail = lv_message_mail "texto do email
+      IMPORTING
+        result       = lv_msg_r "mensagem de retorno de operacoes
+    ).
+  ENDIF.
+
+  "verifica retorno da operacao e envia mensagem de classe
+  IF lv_msg_r-rc = 0. " Sucesso
+    MESSAGE s001(zcl_ckf_msg).
+  ELSE.
+    MESSAGE s002(zcl_ckf_msg).
+  ENDIF.
 
 ENDFORM.
-
-
-*FORM send_mail_order.
-*
-*
-*
-*  custom_control = 'TEDITOR'.
-*
-*  CREATE OBJECT ol_grid
-*    EXPORTING
-*      container_name = custom_control.
-*
-*  CREATE OBJECT editor
-*    EXPORTING
-*      parent = ol_grid.                         " Parent Container
-*
-*
-*  CALL METHOD editor->get_selected_text_as_r3table
-*    IMPORTING
-*      table = lt_objcont.                 " table with selected text
-*
-*
-*  DATA: lv_email_body TYPE string.
-*  LOOP AT lt_objcont INTO DATA(ls_line).
-*    CONCATENATE lv_email_body ls_line INTO lv_email_body  SEPARATED BY space. "Para adicionar texto do container
-*  ENDLOOP.
-*
-*  LOOP AT lt_temp_data INTO ls_temp_data.
-*    CONCATENATE lv_email_body
-*                'Order Number: ' ls_temp_data-ebeln
-*                'Item: ' ls_temp_data-ebelp
-*                'Material: ' ls_temp_data-matnr
-*                INTO lv_email_body SEPARATED BY cl_abap_char_utilities=>cr_lf.
-*  ENDLOOP.
-*
-**    DATA: string_mail TYPE string.
-**    LOOP AT lt_objcont into DATA(ls_line).
-*
-**  ENDLOOP.
-*
-*
-*
-*
-*
-*  LOOP AT lt_temp_data INTO ls_temp_data.
-*
-*    CALL FUNCTION 'ZSEND_MAIL_ORDER'
-*      EXPORTING
-*        po_key       = ls_temp_data-ebeln
-*        message_mail = lv_message_mail
-*      IMPORTING
-*        ls_result    = lv_msg_r.
-*
-*    IF lv_msg_r-rc = 0. " campo RC = 0 / Sucesso
-*
-**        CALL SCREEN 200.
-*
-*      MESSAGE 'E-mail enviado com sucesso.' TYPE 'S'.
-*    ELSE.
-*      MESSAGE 'Erro ao enviar e-mail' TYPE 'E'.
-*    ENDIF.
-*
-*  ENDLOOP.
-*
-*  " Chamar a tela 200 para preencher o texto do e-mail
-*
-*
-*ENDFORM.
-
-"https://sapcodes.com/2016/10/10/concatenation-new-way-of-using/
-*"----------------------------------------------------------------------
-*"*"Interface local:
-*"  IMPORTING
-*"     REFERENCE(PO_KEY) TYPE  EBELN
-*"     REFERENCE(MESSAGE_MAIL) TYPE  STRING OPTIONAL
-*"  EXPORTING
-*"     REFERENCE(LS_RESULT) TYPE  ZCKF_MSG_ST
-*"----------------------------------------------------------------------
